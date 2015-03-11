@@ -2,6 +2,7 @@
 ##############################################################################
 #
 #    Copyright (C) 2014 Davide Corio <davide.corio@lsweb.it>
+#    Copyright 2015 Agile Business Group <http://www.agilebg.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as published
@@ -25,8 +26,8 @@
     'description': """
     Fatturazione Elettronica per la Pubblica Amministrazione.
     """,
-    'author': 'OpenERP Italian Community',
-    'website': 'http://www.openerp-italia.org',
+    'author': 'Davide Corio, Agile Business Group, Innoviu',
+    'website': 'http://www.odoo-italia.org',
     'license': 'AGPL-3',
     "depends": [
         'base', 'account', 'l10n_it_base', 'l10n_it_fiscalcode', 'document'],
