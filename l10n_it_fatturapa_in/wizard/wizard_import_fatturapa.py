@@ -20,7 +20,6 @@
 ##############################################################################
 
 from openerp.osv import orm
-from openerp import addons
 from openerp.tools.translate import _
 import logging
 _logger = logging.getLogger(__name__)
@@ -39,16 +38,15 @@ class WizardImportFatturapa(orm.TransientModel):
         return False
 
     def getPartnerId(self, cr, uid, xmlDataCedentePrestatore, context=None):
-
         partner_model = self.pool['res.partner']
-        partner_id = partner_model.search(
+        partner_ids = partner_model.search(
             cr, uid,
             ['|',
              ('vat', '=', xmlDataCedentePrestatore.idFiscaleIVA or 0),
              ('fiscalcode', '=', xmlDataCedentePrestatore.codiceFiscale or 0),
              ],
             context=context)
-        if len(partner_id) > 1:
+        if len(partner_ids) > 1:
             raise orm.except_orm(
                 _('Error !'),
                 _("Two distinct partners with "
@@ -56,12 +54,12 @@ class WizardImportFatturapa(orm.TransientModel):
                   (xmlDataCedentePrestatore.idFiscaleIVA,
                    xmlDataCedentePrestatore.codiceFiscale))
                 )
-        if partner_id:
-            return partner_id[0]
+        if partner_ids:
+            return partner_ids[0]
         else:
-            # TODO: manage here wrong VAT
             vals = {
-                'name': xmlDataCedentePrestatore.nomeCedentePrestatore,
+                'name': (
+                    xmlDataCedentePrestatore.nomeRappresentanteFiscale),
                 'vat': xmlDataCedentePrestatore.idFiscaleIVA,
                 'fiscalcode': xmlDataCedentePrestatore.codiceFiscale,
                 'customer': False,
@@ -85,8 +83,6 @@ class WizardImportFatturapa(orm.TransientModel):
                             line,
                             context=None):
         account_tax_model = self.pool['account.tax']
-        # TODO: verify if it's possible to have more than 1 tax_id
-        # TODO: verify if AliquotaIVA is always a float(and not a tax str code)
         account_tax_ids = account_tax_model.search(cr, uid,
                                                    [('type_tax_use',
                                                      'in',
@@ -113,7 +109,7 @@ class WizardImportFatturapa(orm.TransientModel):
         }
 
     def invoiceCreate(self, cr, uid,
-                      fatturapa_attachment, xmlDataFattura,
+                      fatturapa_attachment, FatturaElettronicaBody,
                       partner_id, context=None):
         if context is None:
             context = {}
@@ -152,19 +148,17 @@ class WizardImportFatturapa(orm.TransientModel):
                                                 context=context
                                                 )
         # currency
-        # TODO verify if divisa is equal to the code name used in odoo
-        currency_id = currency_model.search(cr, uid,
-                                            [('name', '=', xmlDataFattura.divisa)]
-                                            )
+        currency_id = currency_model.search(
+            cr, uid, [('name', '=', FatturaElettronicaBody.divisa)])
         if not currency_id:
             raise orm.except_orm(
                 _('Error!'),
                 _('No currency found with code %s'
-                  % xmlDataFattura.divisa)
+                  % FatturaElettronicaBody.divisa)
                 )
         credit_account_id = purchase_journal.default_credit_account_id.id
         invoice_lines = []
-        for line in xmlDataFattura.dettaglioLinee:
+        for line in FatturaElettronicaBody.dettaglioLinee:
             invoice_line_data = self._prepareInvoiceLine(
                 cr, uid,
                 credit_account_id,
@@ -174,9 +168,13 @@ class WizardImportFatturapa(orm.TransientModel):
                                                         invoice_line_data,
                                                         context=context)
             invoice_lines.append(invoice_line_id)
-
+        comment = ''
+        for causale in FatturaElettronicaBody.causaleList:
+            comment += causale + '\n'
         invoice_data = {
             'name': 'Fattura ' + partner.name,
+            'date_invoice': FatturaElettronicaBody.data,
+            'supplier_invoice_number': FatturaElettronicaBody.numero,
             # 'reference': xmlData.datiOrdineAcquisto,
             'account_id': pay_acc_id,
             'type': 'in_invoice',
@@ -189,6 +187,7 @@ class WizardImportFatturapa(orm.TransientModel):
             'payment_term': False,
             'company_id': company.id,
             'fatturapa_attachment_in_id': fatturapa_attachment.id,
+            'comment': comment,
         }
         invoice_id = invoice_model.create(cr, uid,
                                           invoice_data,
@@ -207,49 +206,43 @@ class WizardImportFatturapa(orm.TransientModel):
     def importFatturaPA(self, cr, uid, ids, context=None):
         if not context:
             context = {}
-
         fatturapa_attachment_obj = self.pool['fatturapa.attachment.in']
         fatturapa_attachment_ids = context.get('active_ids', False)
         new_invoices = []
         for fatturapa_attachment in fatturapa_attachment_obj.browse(
                 cr, uid, fatturapa_attachment_ids, context=context):
-            if fatturapa_attachment.state != 'processed':
-                try:
-                    xmlData = XmlData(
-                        fatturapa_attachment.datas.decode('base64')
-                    )
-                    xmlData.parseXml()
-                    fatturapa_attachment_obj.write(
-                        cr,
-                        uid,
-                        fatturapa_attachment.id,
-                        {'state': 'processed'}
-                        )
-                    partner_id = self.getPartnerId(cr,
-                                                   uid,
-                                                   xmlData.cedentePrestatore,
-                                                   context)
-                    for fattura in xmlData.fatturaElettronicaBody:
-                        invoice_id = self.invoiceCreate(
-                            cr,
-                            uid,
-                            fatturapa_attachment,
-                            fattura,
-                            partner_id,
-                            context)
-                        new_invoices.append(invoice_id)
-                except:
-                    _logger.error('Error in xml %s', fatturapa_attachment.name)
-                    fatturapa_attachment_obj.write(
-                        cr,
-                        uid,
-                        fatturapa_attachment.id,
-                        {'state': 'error'}
-                        )
+            if fatturapa_attachment.in_invoice_ids:
+                raise orm.except_orm(
+                    _("Error"), _("File is linked to invoices yet"))
+            xmlData = XmlData(
+                fatturapa_attachment.datas.decode('base64')
+            )
+            xmlData.parseXml()
+            partner_id = self.getPartnerId(cr,
+                                           uid,
+                                           xmlData.cedentePrestatore,
+                                           context)
+            for fattura in xmlData.fatturaElettronicaBody:
+                # TODO
+                if fattura.tipoDocumento in (
+                    'TD04', 'TD05'
+                ):
+                    raise orm.except_orm(
+                        _("Error"),
+                        _("tipoDocumento %s not handled")
+                        % fattura.tipoDocumento)
+                invoice_id = self.invoiceCreate(
+                    cr,
+                    uid,
+                    fatturapa_attachment,
+                    fattura,
+                    partner_id,
+                    context)
+                new_invoices.append(invoice_id)
         return {
             'view_type': 'form',
             'name': "PA Supplier Invoices",
-            'view_mode': 'tree, form',
+            'view_mode': 'tree,form',
             'res_model': 'account.invoice',
             'type': 'ir.actions.act_window',
             'domain': [('id', 'in', new_invoices)],

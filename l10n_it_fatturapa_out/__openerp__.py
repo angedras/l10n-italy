@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 #
-#    Copyright (C) 2015 AgileBG SAGL <http://www.agilebg.com>
-#    Copyright (C) 2015 innoviu Srl <http://www.innoviu.com>
+#    Copyright (C) 2014 Davide Corio
+#    Copyright 2015 Agile Business Group <http://www.agilebg.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as published
@@ -19,21 +19,21 @@
 #
 ##############################################################################
 {
-    'name': 'Italian Localization - FatturaPA reception',
+    'name': 'Italian Localization - FatturaPA - Emission',
     'version': '0.1',
     'category': 'Localization/Italy',
-    'summary': 'Electronic invoices reception',
-    'author': 'Agile Business Group, Innoviu',
+    'summary': 'Electronic invoices emission',
+    'author': 'Davide Corio, Agile Business Group, Innoviu',
     'website': 'http://www.agilebg.com',
     'license': 'AGPL-3',
     "depends": [
-        'l10n_it_fatturapa',
-    ],
+        'l10n_it_fatturapa'],
     "data": [
+        'wizard/wizard_export_fatturapa_view.xml',
+        'views/attachment_view.xml',
         'views/account_view.xml',
-        'wizard/wizard_import_fatturapa_view.xml',
     ],
     "test": [],
-    "demo": [],
+    "demo": ['demo/account_invoice_fatturapa.xml'],
     "installable": True
 }

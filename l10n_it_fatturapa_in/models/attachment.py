@@ -21,12 +21,6 @@
 
 from openerp.osv import fields, orm
 
-AVAILABLE_STATES = [
-    ('draft', 'Draft'),
-    ('processed', 'Processed'),
-    ('not_processed', 'Unprocessed'),
-    ('error', 'Error')]
-
 
 class FatturaPAAttachmentIn(orm.Model):
     _name = "fatturapa.attachment.in"
@@ -35,10 +29,9 @@ class FatturaPAAttachmentIn(orm.Model):
     _inherit = ['mail.thread']
 
     _columns = {
-        'ir_attachment_id': fields.many2one('ir.attachment', 'Attachment'),
-        'state': fields.selection(AVAILABLE_STATES, 'State'),
-    }
-
-    _defaults = {
-        'state': 'draft',
+        'ir_attachment_id': fields.many2one(
+            'ir.attachment', 'Attachment', required=True, ondelete="cascade"),
+        'in_invoice_ids': fields.one2many(
+            'account.invoice', 'fatturapa_attachment_in_id',
+            string="In Invoices", readonly=True),
     }

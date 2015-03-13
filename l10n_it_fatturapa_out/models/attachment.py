@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 #
-#    Copyright (C) 2015 AgileBG SAGL <http://www.agilebg.com>
-#    Copyright (C) 2015 innoviu Srl <http://www.innoviu.com>
+#    Copyright (C) 2014 Davide Corio <davide.corio@lsweb.it>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as published
@@ -18,22 +17,20 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ##############################################################################
-{
-    'name': 'Italian Localization - FatturaPA reception',
-    'version': '0.1',
-    'category': 'Localization/Italy',
-    'summary': 'Electronic invoices reception',
-    'author': 'Agile Business Group, Innoviu',
-    'website': 'http://www.agilebg.com',
-    'license': 'AGPL-3',
-    "depends": [
-        'l10n_it_fatturapa',
-    ],
-    "data": [
-        'views/account_view.xml',
-        'wizard/wizard_import_fatturapa_view.xml',
-    ],
-    "test": [],
-    "demo": [],
-    "installable": True
-}
+
+from openerp.osv import fields, orm
+
+
+class FatturaPAAttachment(orm.Model):
+    _name = "fatturapa.attachment.out"
+    _description = "FatturaPA Export File"
+    _inherits = {'ir.attachment': 'ir_attachment_id'}
+    _inherit = ['mail.thread']
+
+    _columns = {
+        'ir_attachment_id': fields.many2one(
+            'ir.attachment', 'Attachment', required=True, ondelete="cascade"),
+        'out_invoice_ids': fields.one2many(
+            'account.invoice', 'fatturapa_attachment_out_id',
+            string="Out Invoices", readonly=True),
+    }
